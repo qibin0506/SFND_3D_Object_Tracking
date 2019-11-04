@@ -33,3 +33,19 @@ In this final project, you will implement the missing parts in the schematic. To
 2. Make a build directory in the top level project directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./3D_object_tracking`.
+
+## Rubric
+
+### FP.5 : Performance Evaluation 1
+Find examples where the TTC estimate of the Lidar sensor does not seem plausible. Describe your observations and provide a sound argumentation why you think this happened.
+
+TTC from Lidar is not correct because of some outliers and some unstable points from preceding vehicle's front mirrors, those need to be filtered out . Here we adapt a bigger shrinkFactor = 0.2, to get more reliable and stable lidar points. Then get a more accurate results.
+
+### FP.6 : Performance Evaluation 2
+Run several detector / descriptor combinations and look at the differences in TTC estimation. Find out which methods perform best and also include several examples where camera-based TTC estimation is way off. As with Lidar, describe your observations again and also look into potential reasons.
+
+when get a robust clusterKptMatchesWithROI can get a stable TTC from Camera. if the result get unstable, It's probably the worse keypints matches.
+
+The TOP3 detector / descriptor combinations as the best choice for our purpose of detecting keypoints on vehicles are: SHITOMASI/BRISK
+SHITOMASI/BRIEF
+SHITOMASI/ORB
