@@ -46,6 +46,9 @@ Run several detector / descriptor combinations and look at the differences in TT
 
 when get a robust clusterKptMatchesWithROI can get a stable TTC from Camera. if the result get unstable, It's probably the worse keypints matches.
 
-The TOP3 detector / descriptor combinations as the best choice for our purpose of detecting keypoints on vehicles are: SHITOMASI/BRISK
+The TOP3 detector / descriptor combinations as the best choice for our purpose of detecting keypoints on vehicles are: 
+SHITOMASI/BRISK
+
 SHITOMASI/BRIEF
+
 SHITOMASI/ORB
