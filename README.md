@@ -40,7 +40,7 @@ In this final project, you will implement the missing parts in the schematic. To
 TTC from Lidar is not correct because of some outliers and some unstable points from preceding vehicle's front mirrors, those need to be filtered out . Here we adapt a bigger shrinkFactor = 0.2, to get more reliable and stable lidar points. Then get a more accurate results.
 
 ### FP.6 : Performance Evaluation 2
-The TOP3 detector / descriptor combinations as the best choice for our purpose of detecting keypoints on vehicles are: 
+The TOP3 detector/descriptor combinations as the best choice for our purpose of detecting keypoints on vehicles are: 
 SHITOMASI/BRISK
 
 SHITOMASI/BRIEF
