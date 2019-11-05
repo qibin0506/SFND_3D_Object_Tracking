@@ -219,6 +219,7 @@ TTC from Lidar is not correct because of some outliers and some unstable points 
 
 ### FP.6 : Performance Evaluation 2
 The different combinations result: [https://drive.google.com/open?id=1TZ2IRxua9xyNjLMNxDdp4WrJLTX8CdwY](https://drive.google.com/open?id=1TZ2IRxua9xyNjLMNxDdp4WrJLTX8CdwY)
+
 The TOP3 detector/descriptor combinations as the best choice for our purpose of detecting keypoints on vehicles are: 
 SHITOMASI/BRISK
 
