@@ -36,6 +36,184 @@ In this final project, you will implement the missing parts in the schematic. To
 
 ## Rubric
 
+### FP.1 : Match 3D Objects
+The matchBoundingBoxes method,
+``` c++
+void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
+{
+    int pre_bbox_size = prevFrame.boundingBoxes.size();
+    int cur_bbox_size = currFrame.boundingBoxes.size();
+    int pt_counts[pre_bbox_size][cur_bbox_size] = {};
+
+    for (auto it = matches.begin(); it != matches.end() - 1; ++it) {
+        cv::KeyPoint query = prevFrame.keypoints[it->queryIdx];
+        auto query_pt = cv::Point(query.pt.x, query.pt.y);
+        auto query_found = false;
+
+        cv::KeyPoint train = currFrame.keypoints[it->trainIdx];
+        auto train_pt = cv::Point(train.pt.x, train.pt.y);
+        auto train_found = false;
+
+        std::vector<int> query_ids, train_ids;
+        for (size_t i = 0; i < pre_bbox_size; i++) {
+            if (prevFrame.boundingBoxes[i].roi.contains(query_pt)) {
+                query_found = true;
+                query_ids.push_back(i);
+            }
+        }
+
+        for (size_t i = 0; i < cur_bbox_size; i++) {
+            if (currFrame.boundingBoxes[i].roi.contains(train_pt)) {
+                train_found = true;
+                train_ids.push_back(i);
+            }
+        }
+
+        if (query_found && train_found) {
+            for (size_t pre_id : query_ids) {
+                for (size_t cur_id : train_ids) {
+                    pt_counts[pre_id][cur_id] += 1;
+                }
+            }
+        }
+    }
+
+    for (size_t i = 0; i < pre_bbox_size; i++) {
+            int max_count = 0;
+            int max_id = 0;
+
+            for (size_t j = 0; j < cur_bbox_size; j++) {
+                if (pt_counts[i][j] > max_count) {
+                    max_count = pt_counts[i][j];
+                    max_id = j;
+                }
+            }
+
+            bbBestMatches[i] = max_id;
+        }
+
+    for (size_t i = 0; i < pre_bbox_size; i++) {
+        cout << "box " << i << "matches box " + bbBestMatches[i] << endl;
+    }
+}
+```
+
+### FP.2 : Compute Lidar-based TTC
+I computed the ttc of lidar by using `x * dt / (prev_x - x)`
+
+```c++
+void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
+                     std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
+{
+    double dt = 1 / frameRate;
+    double lane_width = 4;
+    vector<double> prev_x, cur_x;
+
+    for (auto it = lidarPointsPrev.begin(); it != lidarPointsPrev.end(); ++it) {
+        if (abs(it->y) <= lane_width / 2) {
+            prev_x.push_back(it->x);
+        }
+    }
+
+    for (auto it = lidarPointsCurr.begin(); it != lidarPointsCurr.end(); ++it) {
+        if (abs(it->y) <= lane_width / 2) {
+            cur_x.push_back(it->x);
+        }
+    }
+
+    double min_prev_x, min_cur_x;
+    if (prev_x.size() > 0) {
+        for (auto x : prev_x) {
+            min_prev_x += x;
+        }
+
+        min_prev_x /= prev_x.size();
+    }
+
+    if (cur_x.size() > 0) {
+        for (auto x : cur_x) {
+            min_cur_x += x;
+        }
+
+        min_cur_x /= cur_x.size();
+    }
+
+    TTC = min_cur_x * dt / (min_prev_x - min_cur_x);
+}
+```
+
+### FP.3 : Associate Keypoint Correspondences with Bounding Boxes
+``` c++
+void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
+{
+    double dist_mean = 0;
+    std::vector<cv::DMatch> roi;
+
+    for (auto it = kptMatches.begin(); it != kptMatches.end(); ++it) {
+        cv::KeyPoint kp = kptsCurr.at(it->trainIdx);
+        if (boundingBox.roi.contains(cv::Point(kp.pt.x, kp.pt.y))) {
+            roi.push_back(*it);
+        }
+    }
+
+    for (auto it = roi.begin(); it != roi.end(); ++it) {
+        dist_mean += it->distance;
+    }
+
+    if (roi.size() > 0) {
+        dist_mean /= roi.size();
+    } else {
+        return;
+    }
+
+    double threshold = dist_mean * 0.7;
+    for (auto it = roi.begin(); it != roi.end(); ++it) {
+        if (it->distance < threshold) {
+            boundingBox.kptMatches.push_back(*it);
+        }
+    }
+}
+```
+
+### FP.4 : Compute Camera-based TTC
+``` c++
+void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
+                      std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
+{   
+    double dt = 1 / frameRate;
+    std::vector<double> dist_radios;
+
+    for (auto it = kptMatches.begin(); it != kptMatches.end() - 1; ++it) {
+        cv::KeyPoint cur_outer_kp = kptsCurr.at(it->trainIdx);
+        cv::KeyPoint prev_outer_kp = kptsPrev.at(it->queryIdx);
+
+        for (auto it1 = kptMatches.begin() + 1; it1 != kptMatches.end(); ++it1) {
+            double min_dist = 100.0;
+            cv::KeyPoint cur_inner_kp = kptsCurr.at(it1->trainIdx);
+            cv::KeyPoint prev_inner_kp = kptsPrev.at(it1->queryIdx);
+
+            double cur_dist = cv::norm(cur_outer_kp.pt - cur_inner_kp.pt);
+            double prev_dist = cv::norm(prev_outer_kp.pt - prev_inner_kp.pt);
+            if (prev_dist > std::numeric_limits<double>::epsilon() && cur_dist >= min_dist) {
+                double dist_radio = cur_dist / prev_dist;
+                dist_radios.push_back(dist_radio);
+            }
+        }
+    }
+
+    if (dist_radios.size() == 0) {
+        TTC = NAN;
+        return;
+    }
+
+    std::sort(dist_radios.begin(), dist_radios.end());
+    long med_index = floor(dist_radios.size() / 2.0);
+    double med_dist_radio = dist_radios.size() % 2 == 0 ? (dist_radios[med_index - 1] + dist_radios[med_index]) / 2.0 : dist_radios[med_index];
+    TTC = -dt / (1 - med_dist_radio);
+}
+
+```
+
 ### FP.5 : Performance Evaluation 1
 TTC from Lidar is not correct because of some outliers and some unstable points from preceding vehicle's front mirrors, those need to be filtered out . Here we adapt a bigger shrinkFactor = 0.2, to get more reliable and stable lidar points. Then get a more accurate results.
 
